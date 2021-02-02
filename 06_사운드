@@ -10,4 +10,101 @@
    크기가 큰 음향파일은 사운드 파일을 플레이하는 동안 필요한 부분을 디스크에서 조금씩 로드하는 스트림 형태로 저장
   다양한 플랫폼을 지원해야 할 때 가장 널리 쓰이는 솔루션은 OpenAL
 사운드큐(Sound cue)
-  사운드 이벤트라고도 하며 
+  사운드 이벤트라고도 하며 사운드 큐에는 하나 이상의 소스 데이터 파일을 매핑할 수 있음
+  실제로 게임 코드를 작성할 때는 fs1.wav파일을 직접 재생하는 코드가 아닌 'footstep'이라는 사운드 큐를 작동하는 코드를 작성해야함
+  사운드 큐는 소스데이터파일과 사운드에 관한 메타데이터를 얼마든지 담을 수 있는 컨테이너라고 생각하면 됨
+  예시) 폭발음 큐가 있다고 할 때, 이 큐는 다섯 개의 폭발음 WAV파일 중 하나를 무작위로 재생함
+  또한 폭발음은 멀리서도 들을 수 있는 소리이므로 소리가 들리는 최대 거리를 나타내는 메타 정보가 있어야하며 큐의 우선순위를 높게 매겨야 모든 채널이 사용 중이어도 폭발소리를 들을 수 있음
+  <img src="/01_sound_cue.jpg">
+  게임에서 사용할 폭발음의 메타데이터를 저장하는 방법은 다양하나 그 중 하나는 JSON파일로 저장하는 것
+폭발JSON 
+{
+  "name": "explosion",
+  "falloff": 150,
+  "priority": 10,
+  
+  "sources":
+  {
+    "explosion1.wav",
+    "explosion2.wav",
+    "explosion3.wav"
+  }
+}
+굳이 JSON이 아니어도 유연한구조를 지닌 형식이라면 상관없음. 저장해놓은 데이터를 파싱하는 동안 바로 다음과 같은 사운드 큐 클래스로 변환할 수 있음
+사운드큐 클래스
+class SoundCue
+  string name
+  int falloff
+  int priority
+  //모든 사운드소스를 나타내는 문자열 리스트
+  List sources;
+  
+  function Play()
+    //소스를 무작위로 선택해서 재생
+    ...
+  end
+end
+이 정도로 충분한 게임도 많지만 앞서 소개된 발검음소리 예제에 쓰기엔 캐릭터가 바위, 모래, 유리 등 다양한 재질을 다닐 수 있기에 부족함
+사운드를 캐릭터가 밟는 재질별로 묶은 뒤에 현재 재질에 해당하는 묶음 내에서 무작위로 소스를 선택할 방법이 필요함
+개선된 큐의 JSON파일
+{
+  "name": "footstep",
+  "falloff": 25,
+  "priority": "low",
+  "switch_name": "foot_surface",
+  
+  "sources":
+  {
+    {
+      "switch": "sand",
+      "sources":
+      [
+        "fs_sand1.wav",
+        "fs_sand2.wav",
+        "fs_sand3.wav"
+      ]
+    },
+    {
+      "switch": "grass",
+      "sources":
+      [
+        "fs_grass1.wav",
+        "fs_grass2.wav",
+        "fs_grass3.wav"
+      ]
+    }
+  }
+}
+SoundCue 클래스에 기능을 추가하는 방식으로도 구현할 수 있으나 다음과 같이 SoundCue클래스와 새로운 SwitchableSoundCue클래스가 모두 구현해야하는 ISoundCue인터페이스를 만드는게 낫다
+interface ISoundCue
+  function Play()
+end
+
+class SwitchableSounCue implements ISoundCue
+  string name
+  int falloff
+  int priority
+  string switch_name
+  
+  //(소스 묶음을 나타내는 문자열, 소수 파일 리스트) 쌍을 저장할 해시 맵
+  // 예시)("sand", ["fs_sand1.wav","fs_sand2.wav","fs_sanf3.wav"]) 같은 데이터쌍을 저장함
+  HashMap sources
+  
+  function Play()
+    //switch_name의 현재 값을 얻는다.
+    //그런 다음 해시 맵에 들어있는 리스트를 검색해서 무작위로 사운드를 재생한다
+    ...
+  end
+end
+이 코드가 제 몫을 하려면 코드 어디에서나 스위치의 값을 얻어오고 설정할 수 있어야 함, 그래야만 플레이어의 달리기를 처리하는 코드가 발걸음 큐를 작동하기 전에 바닥의 재질을 확인해서
+스위치에 적절한 값을 설정할 수 있고, 발검음 소리 큐의 Play()함수가 스위치의 현재 값을 얻어서 재질에 맞는 발걸음 소리를 재생할 수 있다
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
